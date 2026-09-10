@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Satbhai UPI</title>
+    <!-- QR Code Generator & Scanner -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif; -webkit-tap-highlight-color:transparent; }
+        :root { --primary:#4f46e5; --primary-dark:#4338ca; --bg:#f3f4f6; --white:#fff; --text:#1f2937; --text-light:#6b7280; --green:#10b981; --red:#ef4444; }
+        body { background-color:#e5e7eb; display:flex; justify-content:center; align-items:center; min-height:100vh; }
+        
+        /* MOBILE APP CONTAINER */
+        #app-frame { width:100%; max-width:414px; height:100vh; max-height:896px; background:var(--bg); position:relative; overflow:hidden; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25); display:flex; flex-direction:column; }
+        @media(min-width: 415px) { #app-frame { height:90vh; border-radius:24px; } }
+
+        /* VIEWS */
+        .view { display:none; flex:1; overflow-y:auto; overflow-x:hidden; background:var(--bg); padding-bottom:70px; animation:fadeIn 0.2s ease; }
+        .view.active { display:block; }
+        @keyframes fadeIn { from{opacity:0;transform:scale(0.98);} to{opacity:1;transform:scale(1);} }
+
+        /* HEADER */
+        .header { background:var(--primary); color:var(--white); padding:20px; border-bottom-left-radius:20px; border-bottom-right-radius:20px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.1); position:sticky; top:0; z-index:10; }
+        .header-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; }
+        .profile-pic { width:40px; height:40px; background:rgba(255,255,255,0.2); border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:18px; border:2px solid rgba(255,255,255,0.4); }
+        .user-greeting { font-size:1.1rem; font-weight:600; margin-left:10px; }
+        .upi-id-badge { background:rgba(255,255,255,0.15); padding:6px 12px; border-radius:20px; font-size:0.85rem; display:inline-block; }
+
+        /* CARDS & GRID */
+        .card { background:var(--white); border-radius:16px; padding:20px; margin:15px; box-shadow:0 2px 4px rgba(0,0,0,0.05); }
+        .action-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:15px; margin-top:20px; }
+        .action-btn { display:flex; flex-direction:column; align-items:center; gap:8px; border:none; background:none; cursor:pointer; }
+        .action-icon { width:54px; height:54px; border-radius:16px; background:var(--white); display:flex; justify-content:center; align-items:center; box-shadow:0 4px 6px rgba(0,0,0,0.05); transition:transform 0.1s; color:var(--primary); }
+        .action-btn:active .action-icon { transform:scale(0.9); }
+        .action-icon svg { width:26px; height:26px; }
+        .action-text { font-size:0.75rem; font-weight:600; color:var(--text); text-align:center; }
+
+        /* BOTTOM NAV */
+        .bottom-nav { position:absolute; bottom:0; width:100%; height:65px; background:var(--white); display:flex; justify-content:space-around; align-items:center; border-top:1px solid #e5e7eb; z-index:20; }
+        @media(min-width: 415px) { .bottom-nav { border-bottom-left-radius:24px; border-bottom-right-radius:24px; } }
+        .nav-item { display:flex; flex-direction:column; align-items:center; gap:4px; color:var(--text-light); font-size:0.75rem; cursor:pointer; border:none; background:none; width:100%; height:100%; justify-content:center; }
+        .nav-item.active { color:var(--primary); font-weight:600; }
+        .nav-item svg { width:24px; height:24px; }
+
+        /* FORMS */
+        .form-group { margin-bottom:15px; }
+        label { display:block; font-size:0.85rem; color:var(--text-light); margin-bottom:6px; font-weight:500; }
+        input { width:100%; padding:14px; border:1.5px solid #d1d5db; border-radius:12px; font-size:1rem; background:#f9fafb; outline:none; transition:border 0.2s; }
+        input:focus { border-color:var(--primary); background:var(--white); }
+        .btn-main { width:100%; padding:15px; background:var(--primary); color:var(--white); border:none; border-radius:12px; font-size:1.1rem; font-weight:600; cursor:pointer; box-shadow:0 4px 6px rgba(79,70,229,0.3); transition:background 0.2s; }
+        .btn-main:active { background:var(--primary-dark); transform:scale(0.98); }
+
+        /* LISTS */
+        .tx-list { list-style:none; }
+        .tx-item { display:flex; justify-content:space-between; align-items:center; padding:15px 0; border-bottom:1px solid #f3f4f6; }
+        .tx-icon { width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-right:12px; flex-shrink:0; }
+        .tx-info { flex:1; }
+        .tx-title { font-weight:600; color:var(--text); font-size:0.95rem; margin-bottom:4px; }
+        .tx-date { font-size:0.75rem; color:var(--text-light); }
+        .tx-amount { font-weight:700; font-size:1rem; text-align:right; }
+        .text-green { color:var(--green); } .text-red { color:var(--text); }
+        .bg-green { background:#d1fae5; color:var(--green); } .bg-red { background:#fee2e2; color:var(--red); }
+
+        /* TOAST */
+        #toast { position:absolute; top:20px; left:50%; transform:translateX(-50%) translateY(-100px); background:#111827; color:white; padding:12px 24px; border-radius:30px; font-size:0.9rem; font-weight:500; z-index:9999; transition:transform 0.3s cubic-bezier(0.175,0.885,0.32,1.275); opacity:0; box-shadow:0 10px 15px rgba(0,0,0,0.1); white-space:nowrap; }
+        #toast.show { transform:translateX(-50%) translateY(0); opacity:1; }
+
+        /* OVERLAYS */
+        .overlay { position:absolute; top:0; left:0; width:100%; height:100%; background:var(--bg); z-index:50; display:none; flex-direction:column; animation:slideUp 0.3s ease; }
+        @keyframes slideUp { from{transform:translateY(100%);} to{transform:translateY(0);} }
+        .overlay-header { display:flex; align-items:center; padding:20px; background:var(--white); box-shadow:0 1px 3px rgba(0,0,0,0.05); }
+        .back-btn { background:none; border:none; padding:5px; cursor:pointer; margin-right:15px; color:var(--text); }
+        .overlay-content { padding:20px; flex:1; overflow-y:auto; }
+
+        /* ACTUAL UPI FLOW CSS */
+        .payment-card { background:white; padding:20px; border-radius:16px; margin:20px; text-align:center; box-shadow:0 4px 15px rgba(0,0,0,0.05); }
+        .payment-avatar { width:60px; height:60px; background:#e0e7ff; color:var(--primary); font-size:24px; font-weight:bold; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 10px auto; }
+        .payment-name { font-size:1.2rem; font-weight:bold; color:var(--text); }
+        .payment-upi { font-size:0.9rem; color:var(--text-light); margin-bottom:20px; }
+        .amount-input { width:100%; text-align:center; font-size:2.5rem; font-weight:bold; border:none; border-bottom:2px solid #e5e7eb; padding-bottom:10px; outline:none; color:var(--text); background:transparent; }
+        .amount-input:focus { border-bottom-color:var(--primary); }
+
+        /* UPI PIN OVERLAY */
+        #ov-pin { background:#0f172a; color:white; z-index:100; justify-content:space-between; }
+        .pin-header { text-align:center; padding:20px; font-weight:600; font-size:1.2rem; border-bottom:1px solid #1e293b; }
+        .pin-dots { display:flex; justify-content:center; gap:15px; margin:30px 0; }
+        .pin-dot { width:16px; height:16px; border-radius:50%; border:2px solid #334155; }
+        .pin-dot.filled { background:white; border-color:white; }
+        .keypad { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; padding:20px; padding-bottom:40px; }
+        .key { padding:20px 0; text-align:center; font-size:1.8rem; font-weight:500; cursor:pointer; border-radius:12px; transition:background 0.1s; }
+        .key:active { background:#1e293b; }
+        .key.action { background:#1e293b; font-size:1.2rem; display:flex; align-items:center; justify-content:center; }
+        .key.submit { background:var(--primary); color:white; }
+
+        /* PROCESSING & SUCCESS */
+        #ov-status { z-index:150; justify-content:center; align-items:center; color:white; text-align:center; padding:20px; }
+        .status-spinner { width:60px; height:60px; border:4px solid rgba(255,255,255,0.3); border-top-color:white; border-radius:50%; animation:spin 1s linear infinite; margin-bottom:20px; }
+        .status-check { width:80px; height:80px; background:white; color:var(--green); border-radius:50%; display:flex; align-items:center; justify-content:center; margin-bottom:20px; animation:popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .status-check svg { width:40px; height:40px; }
+        @keyframes spin { to { transform:rotate(360deg); } }
+        @keyframes popIn { from { transform:scale(0); } to { transform:scale(1); } }
+        .status-title { font-size:1.5rem; font-weight:bold; margin-bottom:10px; }
+        .status-sub { font-size:1rem; opacity:0.9; }
+
+        #reader { width:100%; border-radius:16px; overflow:hidden; border:none!important; box-shadow:0 4px 6px rgba(0,0,0,0.1); }
+        #reader video { object-fit:cover; border-radius:16px; }
+        #qr-box { background:white; padding:20px; border-radius:16px; display:inline-block; box-shadow:0 4px 6px rgba(0,0,0,0.05); }
+
+    </style>
+</head>
+<body>
+
+<div id="app-frame">
+
+    <!-- LOGIN/REGISTER -->
+    <div id="view-auth" class="view active" style="padding-bottom:0; background:var(--white);">
+        <div style="height:40vh; background:var(--primary); border-bottom-left-radius:30px; border-bottom-right-radius:30px; display:flex; flex-direction:column; justify-content:center; align-items:center; color:white;">
+            <svg width="60" height="60" viewBox="0 0 40 40" fill="none"><rect width="40" height="40" rx="12" fill="white" fill-opacity="0.2"/><path d="M20 8L8 16V20H32V16L20 8Z" fill="white"/><rect x="11" y="22" width="4" height="10" rx="1" fill="white"/><rect x="18" y="22" width="4" height="10" rx="1" fill="white"/><rect x="25" y="22" width="4" height="10" rx="1" fill="white"/><rect x="8" y="34" width="24" height="3" rx="1" fill="white"/></svg>
+            <h1 style="margin-top:15px; font-size:2rem;">Satbhai UPI</h1>
+            <p style="opacity:0.8; margin-top:5px;">Instant. Secure. Bank.</p>
+        </div>
+        
+        <div style="padding:30px 20px;">
+            <div id="auth-login-box">
+                <h2 style="margin-bottom:20px; color:var(--text); text-align:center;">Verify Mobile Number</h2>
+                <div class="form-group">
+                    <input type="tel" id="auth-phone-login" placeholder="Enter 10-digit Mobile No." maxlength="10">
+                </div>
+                <button class="btn-main" onclick="realLogin()">Verify with Bank</button>
+                <p style="text-align:center; margin-top:20px; color:var(--text-light); font-size:0.85rem;">New to Satbhai? <a href="#" onclick="toggleAuth(true)" style="color:var(--primary); font-weight:bold;">Create UPI ID</a></p>
+            </div>
+
+            <div id="auth-reg-box" style="display:none;">
+                <h2 style="margin-bottom:20px; color:var(--text); text-align:center;">Link Bank Account</h2>
+                <div class="form-group"><input type="text" id="reg-name" placeholder="Full Name (As per Bank)"></div>
+                <div class="form-group"><input type="tel" id="reg-phone" placeholder="10-digit mobile number" maxlength="10"></div>
+                <button class="btn-main" onclick="authRegister()">Set UPI PIN & Create ID</button>
+                <p style="text-align:center; margin-top:20px; color:var(--text-light); font-size:0.85rem;">Already linked? <a href="#" onclick="toggleAuth(false)" style="color:var(--primary); font-weight:bold;">Login</a></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- HOME -->
+    <div id="view-home" class="view">
+        <div class="header">
+            <div class="header-top">
+                <div style="display:flex; align-items:center;">
+                    <div class="profile-pic" id="h-pic">U</div>
+                    <div>
+                        <div class="user-greeting">Hi, <span id="h-name">User</span></div>
+                        <div class="upi-id-badge" id="h-upi">user@satbhai</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card" style="margin-top:-20px; position:relative; z-index:2; text-align:center;">
+            <p style="color:var(--text-light); font-size:0.85rem; font-weight:600; margin-bottom:5px;">Check Bank Balance</p>
+            <h2 id="d-bal" style="color:var(--text); font-size:1.8rem; display:none;">₹ * * * *</h2>
+            <button id="btn-check-bal" style="background:#e0e7ff; color:var(--primary); border:none; padding:10px 20px; border-radius:12px; font-size:0.9rem; font-weight:bold; cursor:pointer; width:100%; margin-top:5px;" onclick="refreshBal(true)">Check Balance</button>
+        </div>
+
+        <div class="card" style="padding:15px;">
+            <h3 style="font-size:0.95rem; color:var(--text); margin-bottom:15px; margin-left:5px;">Transfer Money</h3>
+            <div class="action-grid">
+                <button class="action-btn" onclick="openOverlay('ov-scan')">
+                    <div class="action-icon"><svg fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 14h2v2h-2zM14 18h2v2h-2zM18 18h2v2h-2z"/></svg></div>
+                    <span class="action-text">Scan QR</span>
+                </button>
+                <button class="action-btn" onclick="openOverlay('ov-search')">
+                    <div class="action-icon"><svg fill="none" stroke="currentColor" stroke-width="2"><path d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg></div>
+                    <span class="action-text">Pay Mobile</span>
+                </button>
+                <button class="action-btn" onclick="openOverlay('ov-bank')">
+                    <div class="action-icon"><svg fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11m16-11v11M8 14v3m4-3v3m4-3v3"/></svg></div>
+                    <span class="action-text">To Bank</span>
+                </button>
+                <button class="action-btn" onclick="toast('Income credited for testing!'); fetch('/api/transaction',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'id='+uId+'&type=DEPOSIT&amount=5000'}).then(()=>refreshBal(true));">
+                    <div class="action-icon"><svg fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v16m8-8H4"/></svg></div>
+                    <span class="action-text">Add Cash</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <h3 style="font-size:0.95rem; color:var(--text);">Recent Transactions</h3>
+                <span style="color:var(--primary); font-size:0.8rem; font-weight:600; cursor:pointer;" onclick="loadStatementOverlay()">View All</span>
+            </div>
+            <ul class="tx-list" id="home-tx"><li style="text-align:center; color:#999; font-size:0.85rem;">No recent transactions</li></ul>
+        </div>
+    </div>
+
+    <!-- BOTTOM NAV -->
+    <div class="bottom-nav" id="b-nav" style="display:none;">
+        <button class="nav-item active" onclick="switchNav('view-home', this)"><svg fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>Home</button>
+        <button class="nav-item" onclick="openOverlay('ov-receive')"><svg fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v16m8-8H4"/></svg>Receive</button>
+        <button class="nav-item" onclick="loadStatementOverlay()"><svg fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>History</button>
+        <button class="nav-item" onclick="logout()"><svg fill="none" stroke="currentColor" stroke-width="2"><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>Logout</button>
+    </div>
+
+    <!-- --- OVERLAYS --- -->
+
+    <!-- Scan QR -->
+    <div class="overlay" id="ov-scan">
+        <div class="overlay-header" style="background:#111827; color:white;">
+            <button class="back-btn" style="color:white;" onclick="stopScanner(); closeOverlay('ov-scan')"><svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg></button>
+            <h3 style="font-size:1.1rem;">Scan any QR</h3>
+        </div>
+        <div class="overlay-content" style="background:#111827; display:flex; flex-direction:column; align-items:center;">
+            <div id="reader"></div>
+            <p style="color:white; margin-top:20px; font-size:0.9rem;">Point camera at a UPI QR Code</p>
+        </div>
+    </div>
+
+    <!-- Search Receiver -->
+    <div class="overlay" id="ov-search">
+        <div class="overlay-header">
+            <button class="back-btn" onclick="closeOverlay('ov-search')"><svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg></button>
+            <h3 style="font-size:1.1rem; color:var(--text);">Send Money</h3>
+        </div>
+        <div class="overlay-content">
+            <div class="form-group">
+                <input type="text" id="pay-to-search" placeholder="Enter Mobile No. or UPI ID" style="padding:16px;">
+            </div>
+            <button class="btn-main" onclick="verifyReceiver()">Verify & Continue</button>
+        </div>
+    </div>
+
+    <!-- Enter Amount -->
+    <div class="overlay" id="ov-amount">
+        <div class="overlay-header">
+            <button class="back-btn" onclick="closeOverlay('ov-amount'); openOverlay('ov-search');"><svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg></button>
+            <h3 style="font-size:1.1rem; color:var(--text);">Paying</h3>
+        </div>
+        <div class="overlay-content" style="display:flex; flex-direction:column;">
+            <div class="payment-card">
+                <div class="payment-avatar" id="pay-avatar">U</div>
+                <div class="payment-name" id="pay-name">User Name</div>
+                <div class="payment-upi" id="pay-upi">user@satbhai</div>
+                
+                <p style="color:var(--text-light); font-weight:600; margin-bottom:10px;">Enter Amount</p>
+                <div style="display:flex; align-items:center; justify-content:center; font-size:2.5rem; font-weight:bold;">
+                    <span style="color:var(--text-light); margin-right:5px;">₹</span>
+                    <input type="number" id="pay-amt" placeholder="0" class="amount-input" style="width:120px;" autofocus>
+                </div>
+            </div>
+            <div style="flex:1;"></div>
+            <button class="btn-main" onclick="proceedToPin()">Pay Securely</button>
+        </div>
+    </div>
+
+    <!-- UPI PIN SCREEN -->
+    <div class="overlay" id="ov-pin" style="background:#0f172a;">
+        <div class="pin-header">
+            <div>Enter 4-Digit UPI PIN</div>
+            <div style="font-size:0.8rem; font-weight:normal; opacity:0.7; margin-top:5px;">To: <span id="pin-to-name"></span></div>
+        </div>
+        <div class="pin-dots" id="pin-dots">
+            <div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div>
+        </div>
+        <div style="text-align:center; color:#ef4444; font-size:0.85rem; height:20px;" id="pin-error"></div>
+        <div style="flex:1;"></div>
+        <div class="keypad">
+            <div class="key" onclick="pressPin(1)">1</div><div class="key" onclick="pressPin(2)">2</div><div class="key" onclick="pressPin(3)">3</div>
+            <div class="key" onclick="pressPin(4)">4</div><div class="key" onclick="pressPin(5)">5</div><div class="key" onclick="pressPin(6)">6</div>
+            <div class="key" onclick="pressPin(7)">7</div><div class="key" onclick="pressPin(8)">8</div><div class="key" onclick="pressPin(9)">9</div>
+            <div class="key action" onclick="closeOverlay('ov-pin');">Cancel</div><div class="key" onclick="pressPin(0)">0</div>
+            <div class="key action submit" onclick="submitPin()"><svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></div>
+        </div>
+    </div>
+
+    <!-- PROCESSING & SUCCESS SCREEN -->
+    <div class="overlay" id="ov-status">
+        <!-- Spinner -->
+        <div id="status-loading" style="display:none; flex-direction:column; align-items:center;">
+            <div class="status-spinner"></div>
+            <div class="status-title">Processing Payment...</div>
+            <div class="status-sub">Connecting securely with NPCI</div>
+        </div>
+        
+        <!-- Success -->
+        <div id="status-success" style="display:none; flex-direction:column; align-items:center; background:var(--green); position:absolute; top:0; left:0; width:100%; height:100%; justify-content:center; padding:20px;">
+            <div class="status-check"><svg fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></div>
+            <div class="status-title">Payment Successful</div>
+            <div class="status-sub" style="margin-bottom:30px;" id="succ-msg">₹500 sent to Darshan</div>
+            <button class="btn-main" style="background:white; color:var(--green);" onclick="closeOverlay('ov-status'); loadHomeTx();">Done</button>
+        </div>
+    </div>
+
+    <!-- Receiver QR Code -->
+    <div class="overlay" id="ov-receive">
+        <div class="overlay-header">
+            <button class="back-btn" onclick="closeOverlay('ov-receive')"><svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg></button>
+            <h3 style="font-size:1.1rem; color:var(--text);">Receive Money</h3>
+        </div>
+        <div class="overlay-content" style="display:flex; flex-direction:column; align-items:center;">
+            <h2 style="margin-bottom:5px; color:var(--text);" id="qr-name">User Name</h2>
+            <p style="color:var(--text-light); margin-bottom:30px; font-weight:600;" id="qr-upi">user@satbhai</p>
+            <div id="qr-box"></div>
+            <p style="margin-top:20px; color:var(--text-light); font-size:0.85rem;">Scan to pay with any UPI App</p>
+        </div>
+    </div>
+
+    <!-- History -->
+    <div class="overlay" id="ov-history">
+        <div class="overlay-header">
+            <button class="back-btn" onclick="closeOverlay('ov-history')"><svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg></button>
+            <h3 style="font-size:1.1rem; color:var(--text);">Transaction History</h3>
+        </div>
+        <div class="overlay-content" style="background:var(--white); padding:0;">
+            <ul class="tx-list" id="full-tx" style="padding:0 20px;">
+                <p style="text-align:center; padding:30px; color:var(--text-light);">Loading...</p>
+            </ul>
+        </div>
+    </div>
+
+    <!-- ATM Modal for simplicity -->
+    <div class="overlay" id="ov-bank">
+        <div class="overlay-header">
+            <button class="back-btn" onclick="closeOverlay('ov-bank')"><svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg></button>
+            <h3 style="font-size:1.1rem; color:var(--text);">Self Bank Transfer</h3>
+        </div>
+        <div class="overlay-content">
+            <div class="form-group"><input type="number" id="with-amt" placeholder="Amount to withdraw to bank"></div>
+            <button class="btn-main" onclick="doSelfTx('WITHDRAW')">Withdraw to Bank</button>
+        </div>
+    </div>
+
+    <div id="toast">Message goes here</div>
+
+</div>
+
+<script>
+// VARIABLES
+let uId = null; let uPhone = null; let html5QrcodeScanner = null;
+let currentPayTo = null; let currentPayName = null; let currentPayAmt = null;
+let currentPin = '';
+
+function toast(msg) { const t=document.getElementById('toast'); t.innerText=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'), 3000); }
+function fmt(num) { return '₹' + new Intl.NumberFormat('en-IN').format(num); }
+function openOverlay(id) { document.getElementById(id).style.display='flex'; if(id==='ov-receive')generateQR(); }
+function closeOverlay(id) { document.getElementById(id).style.display='none'; }
+function toggleAuth(isReg) { document.getElementById('auth-login-box').style.display=isReg?'none':'block'; document.getElementById('auth-reg-box').style.display=isReg?'block':'none'; }
+function switchNav(viewId, el) { document.querySelectorAll('.view').forEach(v=>v.classList.remove('active')); document.getElementById(viewId).classList.add('active'); document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active')); if(el)el.classList.add('active'); }
+
+// AUTH
+async function authRegister() {
+    let n=document.getElementById('reg-name').value; let p=document.getElementById('reg-phone').value;
+    if(!n||p.length!==10) return toast('Valid name & 10-digit phone required');
+    let res = await fetch('/api/create',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:`name=${n}&phone=${p}`});
+    let d = await res.json();
+    if(d.success) { toast('UPI Setup Complete!'); toggleAuth(false); document.getElementById('auth-phone-login').value=p; } else toast(d.message);
+}
+
+async function realLogin() {
+    let phone=document.getElementById('auth-phone-login').value;
+    if(phone.length!==10) return toast('Enter 10-digit mobile number');
+    let res = await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:`phone=${phone}`});
+    let d = await res.json();
+    if(d.success) {
+        uId=d.id; uPhone=d.phone;
+        document.getElementById('h-name').innerText=d.name.split(' ')[0];
+        document.getElementById('h-pic').innerText=d.name.charAt(0).toUpperCase();
+        document.getElementById('h-upi').innerText=d.phone+'@satbhai';
+        document.getElementById('qr-name').innerText=d.name; document.getElementById('qr-upi').innerText=d.phone+'@satbhai';
+        
+        switchNav('view-home'); document.getElementById('b-nav').style.display='flex';
+        refreshBal(); loadHomeTx(); toast('Verified securely.');
+    } else toast('Phone not linked to Satbhai UPI.');
+}
+
+function logout() { uId=null; uPhone=null; document.getElementById('b-nav').style.display='none'; switchNav('view-auth'); }
+
+// DATA
+async function refreshBal(show=false) {
+    if(!uPhone) return;
+    let res = await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:`phone=${uPhone}`});
+    let d = await res.json();
+    if(d.success) {
+        document.getElementById('d-bal').innerText=fmt(d.balance);
+        if(show) { document.getElementById('btn-check-bal').style.display='none'; document.getElementById('d-bal').style.display='block'; setTimeout(()=>{document.getElementById('btn-check-bal').style.display='block'; document.getElementById('d-bal').style.display='none';}, 5000); }
+    }
+}
+
+// UPI PAYMENT FLOW
+async function verifyReceiver() {
+    let toRaw = document.getElementById('pay-to-search').value.trim();
+    if(!toRaw) return toast('Enter Mobile No or UPI ID');
+    let to = toRaw.replace('@satbhai','');
+    if(to === uPhone || to === uId.toString()) return toast('Cannot pay yourself');
+
+    let res = await fetch('/api/verify', {method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:`phone=${to}`});
+    let d = await res.json();
+    if(d.success) {
+        currentPayTo = to; currentPayName = d.name;
+        document.getElementById('pay-avatar').innerText = d.name.charAt(0).toUpperCase();
+        document.getElementById('pay-name').innerText = d.name;
+        document.getElementById('pay-upi').innerText = (to.length==10?to:toRaw)+'@satbhai';
+        document.getElementById('pay-amt').value = '';
+        closeOverlay('ov-search'); openOverlay('ov-amount');
+    } else toast('UPI ID not found');
+}
+
+function proceedToPin() {
+    let amt = document.getElementById('pay-amt').value;
+    if(!amt || amt<=0) return toast('Enter valid amount');
+    currentPayAmt = amt;
+    document.getElementById('pin-to-name').innerText = currentPayName;
+    currentPin = ''; updatePinDots(); document.getElementById('pin-error').innerText='';
+    closeOverlay('ov-amount'); openOverlay('ov-pin');
+}
+
+function pressPin(num) {
+    if(currentPin.length < 4) { currentPin += num; updatePinDots(); }
+}
+function updatePinDots() {
+    let dots = document.getElementById('pin-dots').children;
+    for(let i=0; i<4; i++) { if(i < currentPin.length) dots[i].classList.add('filled'); else dots[i].classList.remove('filled'); }
+}
+async function submitPin() {
+    if(currentPin.length !== 4) return document.getElementById('pin-error').innerText='Enter 4-digit PIN';
+    closeOverlay('ov-pin');
+    
+    // Status Flow
+    let ov = document.getElementById('ov-status');
+    let sL = document.getElementById('status-loading');
+    let sS = document.getElementById('status-success');
+    ov.style.display='flex'; ov.style.background='var(--primary)';
+    sL.style.display='flex'; sS.style.display='none';
+
+    // API Call
+    let res = await fetch('/api/transfer', {method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:`from=${uId}&to=${currentPayTo}&amount=${currentPayAmt}`});
+    let d = await res.json();
+
+    setTimeout(() => { // Artificial delay for NPCI realism
+        sL.style.display='none';
+        if(d.success) {
+            document.getElementById('succ-msg').innerText = `₹${currentPayAmt} sent to ${currentPayName}`;
+            ov.style.background = 'transparent'; sS.style.display='flex';
+            refreshBal();
+            document.getElementById('pay-to-search').value = '';
+        } else {
+            ov.style.display='none'; toast(d.message);
+        }
+    }, 1500);
+}
+
+// SELF TX
+async function doSelfTx(type) {
+    let amt = document.getElementById('with-amt').value;
+    if(!amt) return toast('Enter amount');
+    let res = await fetch('/api/transaction',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:`id=${uId}&type=${type}&amount=${amt}`});
+    let d = await res.json();
+    if(d.success) { toast('Transfer Successful'); document.getElementById('with-amt').value=''; closeOverlay('ov-bank'); refreshBal(); loadHomeTx(); } else toast(d.message);
+}
+
+// HISTORY
+function buildTxHtml(txs, lim) {
+    if(!txs || txs.length===0) return '<li style="text-align:center;color:#999;padding:20px;">No transactions.</li>';
+    let h=''; let itms = lim ? txs.slice(0,lim) : txs;
+    itms.forEach(t => {
+        let isCr = (t.type==='DEPOSIT'||t.type==='TRANSFER_IN');
+        let icon = isCr ? '<svg stroke="currentColor" fill="none" viewBox="0 0 24 24"><path stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/></svg>' : '<svg stroke="currentColor" fill="none" viewBox="0 0 24 24"><path stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"/></svg>';
+        h += `<li class="tx-item"><div class="tx-icon ${isCr?'bg-green':'bg-red'}">${icon}</div><div class="tx-info"><div class="tx-title">${t.description}</div><div class="tx-date">${t.timestamp}</div></div><div class="tx-amount ${isCr?'text-green':'text-red'}">${isCr?'+':'-'}${fmt(t.amount)}</div></li>`;
+    });
+    return h;
+}
+async function loadHomeTx() {
+    if(!uId) return;
+    let res=await fetch(`/api/statement?id=${uId}`); let d=await res.json();
+    if(d.success) document.getElementById('home-tx').innerHTML=buildTxHtml(d.transactions,3);
+}
+async function loadStatementOverlay() {
+    openOverlay('ov-history');
+    let res=await fetch(`/api/statement?id=${uId}`); let d=await res.json();
+    if(d.success) document.getElementById('full-tx').innerHTML=buildTxHtml(d.transactions,0);
+}
+
+// QR
+function generateQR() {
+    document.getElementById('qr-box').innerHTML='';
+    let nm = document.getElementById('h-name').innerText;
+    new QRCode(document.getElementById('qr-box'), { text: `upi://pay?pa=${uPhone}@satbhai&pn=${nm}`, width: 200, height: 200, colorDark: "#1f2937", colorLight: "#ffffff" });
+}
+function startScanner() {
+    if(html5QrcodeScanner) return;
+    document.getElementById('reader').innerHTML = ''; // clear any old errors
+    try {
+        html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps:10, qrbox:{width:250,height:250} }, false);
+        html5QrcodeScanner.render((txt) => {
+            stopScanner(); closeOverlay('ov-scan');
+            let to=txt; if(txt.includes('pa=')) to=new URLSearchParams(txt.split('?')[1]).get('pa');
+            document.getElementById('pay-to-search').value = to;
+            openOverlay('ov-search'); verifyReceiver();
+        }, (err) => {});
+    } catch (e) {
+        document.getElementById('reader').innerHTML = '<p style="color:red; padding:20px; text-align:center;">Camera access denied or unsupported on this device.</p><button onclick="simulateScan()" class="btn-main" style="margin-top:10px;">Simulate Scan (Test)</button>';
+    }
+}
+function stopScanner() { if(html5QrcodeScanner){html5QrcodeScanner.clear(); html5QrcodeScanner=null;} }
+function simulateScan() {
+    stopScanner(); closeOverlay('ov-scan');
+    document.getElementById('pay-to-search').value = '10001@satbhai';
+    toast('Simulated scan of Account 10001');
+    openOverlay('ov-search'); verifyReceiver();
+}
+
+window.addEventListener('focus', () => { if(uId) { refreshBal(); loadHomeTx(); } });
+</script>
+</body>
+</html>
