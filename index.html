@@ -209,9 +209,14 @@
             <button class="back-btn" style="color:white;" onclick="stopScanner(); closeOverlay('ov-scan')"><svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg></button>
             <h3 style="font-size:1.1rem;">Scan any QR</h3>
         </div>
-        <div class="overlay-content" style="background:#111827; display:flex; flex-direction:column; align-items:center;">
-            <div id="reader"></div>
+        <div class="overlay-content" style="background:#111827; display:flex; flex-direction:column; align-items:center; padding-top: 40px;">
+            <div id="reader" style="width:100%; min-height:250px; background:#1f2937; border-radius:16px; display:flex; justify-content:center; align-items:center; color:#9ca3af; text-align:center; padding:20px;">Loading Camera...</div>
             <p style="color:white; margin-top:20px; font-size:0.9rem;">Point camera at a UPI QR Code</p>
+            
+            <div style="margin-top:40px; width:100%; text-align:center;">
+                <p style="color:#6b7280; font-size:0.8rem; margin-bottom:10px;">Camera not working on this browser?</p>
+                <button onclick="simulateScan()" class="btn-main" style="background:#374151; color:white; border:1px solid #4b5563;">Simulate a QR Scan (Test)</button>
+            </div>
         </div>
     </div>
 
@@ -341,7 +346,7 @@ let currentPin = '';
 
 function toast(msg) { const t=document.getElementById('toast'); t.innerText=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'), 3000); }
 function fmt(num) { return '₹' + new Intl.NumberFormat('en-IN').format(num); }
-function openOverlay(id) { document.getElementById(id).style.display='flex'; if(id==='ov-receive')generateQR(); }
+function openOverlay(id) { document.getElementById(id).style.display='flex'; if(id==='ov-receive')generateQR(); if(id==='ov-scan')startScanner(); }
 function closeOverlay(id) { document.getElementById(id).style.display='none'; }
 function toggleAuth(isReg) { document.getElementById('auth-login-box').style.display=isReg?'none':'block'; document.getElementById('auth-reg-box').style.display=isReg?'block':'none'; }
 function switchNav(viewId, el) { document.querySelectorAll('.view').forEach(v=>v.classList.remove('active')); document.getElementById(viewId).classList.add('active'); document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active')); if(el)el.classList.add('active'); }
